@@ -276,6 +276,7 @@ struct sdhci_ops {
 
 	void		(*platform_clk_ctrl)(struct sdhci_host *host, bool enable);
 	int		(*platform_execute_tuning)(struct sdhci_host *host);
+	void		(*platform_set_power)(bool power_on);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

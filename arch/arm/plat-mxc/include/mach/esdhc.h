@@ -36,5 +36,6 @@ struct esdhc_platform_data {
 	unsigned int keep_power_at_suspend;
 	unsigned int delay_line;
 	int (*platform_pad_change)(unsigned int index, int clock);
+	void (*platform_set_power)(bool power_on);
 };
 #endif /* __ASM_ARCH_IMX_ESDHC_H */

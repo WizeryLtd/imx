@@ -1202,6 +1202,13 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		}
 	}
 
+	if (host->mmc->caps & MMC_CAP_PLAT_POWER) {
+		if (power == (unsigned short)-1)
+			host->ops->platform_set_power(false);
+		else
+			host->ops->platform_set_power(true);
+	}
+
 	if (host->pwr == pwr)
 		return;
 

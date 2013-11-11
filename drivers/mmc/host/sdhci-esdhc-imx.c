@@ -847,6 +847,11 @@ static int esdhc_pltfm_init(struct sdhci_host *host, struct sdhci_pltfm_data *pd
 	if (cpu_is_mx6q() || cpu_is_mx6dl())
 		sdhci_esdhc_ops.platform_execute_tuning = esdhc_execute_tuning;
 
+	if (boarddata->platform_set_power) {
+		sdhci_esdhc_ops.platform_set_power = boarddata->platform_set_power;
+		host->mmc->caps |= MMC_CAP_PLAT_POWER;
+	}
+
 	if (boarddata->support_18v) {
 		host->ocr_avail_sd |= MMC_VDD_165_195;
 		host->ocr_avail_mmc |= MMC_VDD_165_195;

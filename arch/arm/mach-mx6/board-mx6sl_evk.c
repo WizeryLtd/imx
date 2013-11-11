@@ -53,6 +53,7 @@
 #include <sound/wm8962.h>
 #include <sound/pcm.h>
 #include <linux/power/sabresd_battery.h>
+#include <linux/wl12xx.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
@@ -241,6 +242,8 @@ static const struct esdhc_platform_data mx6_evk_sd2_data __initconst = {
 	.platform_pad_change = plt_sd_pad_change,
 };
 
+static void mx6sl_wl18xx_set_power(bool power_on);
+
 static const struct esdhc_platform_data mx6_evk_sd3_data __initconst = {
 	.cd_gpio		= MX6_BRD_SD3_CD,
 	.wp_gpio		= -1,
@@ -248,6 +251,7 @@ static const struct esdhc_platform_data mx6_evk_sd3_data __initconst = {
 	.delay_line		= 0,
 	.support_18v		= 1,
 	.platform_pad_change = plt_sd_pad_change,
+	.platform_set_power = mx6sl_wl18xx_set_power,
 };
 
 #define mV_to_uV(mV) (mV * 1000)
@@ -1517,6 +1521,76 @@ static void mx6sl_evk_suspend_exit()
 			ARRAY_SIZE(suspend_exit_pads));
 }
 
+static void mx6sl_wl18xx_set_power(bool power_on)
+{
+	static bool power_state;
+
+	pr_info("Powering %s wl18xx", power_on ? "on" : "off");
+
+	if (power_on == power_state)
+		return;
+
+	power_state = power_on;
+
+	if (power_on)
+		gpio_set_value(MX6SL_BRD_EPDC_SDDO_4, 1);
+	else
+		gpio_set_value(MX6SL_BRD_EPDC_SDDO_4, 0);
+}
+
+static struct wl12xx_platform_data wl18xx_wlan_data __initdata = {
+	.irq			= -1,
+	.board_ref_clock	= WL12XX_REFCLOCK_26,
+	.board_tcxo_clock	= WL12XX_TCXOCLOCK_26,
+};
+
+static iomux_v3_cfg_t mx6sl_wilink_pads[] = {
+	/* WL_EN & WL_IRQ */
+	MX6SL_PAD_EPDC_D0__GPIO_1_7,
+	MX6SL_PAD_EPDC_D4__GPIO_1_11,
+};
+
+static void __init imx6sl_wilink8_init(void)
+{
+	int ret;
+
+	/* Configure MUX settings for our two EPDC pins to GPIO */
+	ret = mxc_iomux_v3_setup_multiple_pads(mx6sl_wilink_pads,
+					ARRAY_SIZE(mx6sl_wilink_pads));
+	if (ret) {
+		pr_err("Could not remux wilink pins: %d\n", ret);
+		return;
+	}
+
+	ret = gpio_request_one(MX6SL_BRD_EPDC_SDDO_4, GPIOF_OUT_INIT_LOW, "wlan_en");
+	if (ret) {
+		pr_err("Could not request wl18xx wlan enable gpio: %d\n", ret);
+		goto exit;
+	}
+
+	ret = gpio_request_one(MX6SL_BRD_EPDC_SDDO_0, GPIOF_IN, "wlan_irq");
+	if (ret) {
+		pr_err("Could not request wl18xx wlan irq gpio: %d\n", ret);
+		goto free_wlan_en;
+	}
+
+	wl18xx_wlan_data.irq = gpio_to_irq(MX6SL_BRD_EPDC_SDDO_0);
+
+	ret = wl12xx_set_platform_data(&wl18xx_wlan_data);
+	if (ret) {
+		pr_err("Could not set wl18xx wlan data: %d\n", ret);
+		goto free_wlan_irq;
+	}
+
+free_wlan_irq:
+	gpio_free(MX6SL_BRD_EPDC_SDDO_0);
+
+free_wlan_en:
+	gpio_free(MX6SL_BRD_EPDC_SDDO_4);
+exit:
+	return;
+}
+
 /*!
  * Board specific initialization.
  */
@@ -1646,6 +1720,9 @@ static void __init mx6_evk_init(void)
 	platform_device_register(&evk_max8903_charger_1);
 	pm_power_off = mx6_snvs_poweroff;
 	imx6q_add_pm_imx(0, &mx6sl_evk_pm_data);
+
+	/* Wilink8 */
+	imx6sl_wilink8_init();
 }
 
 extern void __iomem *twd_base;
