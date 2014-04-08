@@ -983,6 +983,34 @@ sdhci_esdhc_imx_probe_dt(struct platform_device *pdev,
 }
 #endif
 
+static int sdhci_esdhc_set_power(struct sdhci_host *host, bool power_on)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct pltfm_imx_data *imx_data = pltfm_host->priv;
+	struct esdhc_platform_data *boarddata = &imx_data->boarddata;
+	int ret;
+	static int power_status = 0;
+
+	if (!boarddata->vaux)
+		return 0;
+
+	if (power_on) {
+		if (power_status)
+			return 0;
+		printk("%s: power on wifi\n", __func__);
+		ret = regulator_enable(boarddata->vaux);
+	} else {
+		if (!power_status)
+			return 0;
+		printk("%s: power off wifi\n", __func__);
+		ret = regulator_disable(boarddata->vaux);
+	}
+
+	power_status = power_on;
+
+	return ret;
+}
+
 static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -992,6 +1020,7 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	struct esdhc_platform_data *boarddata;
 	int err;
 	struct pltfm_imx_data *imx_data;
+	struct regulator *vaux;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_esdhc_imx_pdata);
 	if (IS_ERR(host))
@@ -1096,6 +1125,12 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 		}
 		imx_data->boarddata = *((struct esdhc_platform_data *)
 					host->mmc->parent->platform_data);
+	}
+
+	vaux = regulator_get(&pdev->dev, "vaux");
+	if (!IS_ERR(vaux)) {
+		boarddata->vaux = vaux;
+		sdhci_esdhc_ops.platform_set_power = sdhci_esdhc_set_power;
 	}
 
 	/* write_protect */

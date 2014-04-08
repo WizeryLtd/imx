@@ -1259,6 +1259,7 @@ static inline void sdhci_update_clock(struct sdhci_host *host)
 static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 {
 	u8 pwr = 0;
+	int ret;
 
 	if (power != (unsigned short)-1) {
 		switch (1 << power) {
@@ -1276,6 +1277,16 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		default:
 			BUG();
 		}
+	}
+
+	if (host->ops->platform_set_power) {
+		if (power == (unsigned short)-1)
+			ret = host->ops->platform_set_power(host, false);
+		else
+			ret = host->ops->platform_set_power(host, true);
+
+		if (ret)
+			return ret;
 	}
 
 	if (host->pwr == pwr)

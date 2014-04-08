@@ -11,6 +11,7 @@
 #define __ASM_ARCH_IMX_ESDHC_H
 
 #include <linux/types.h>
+#include <linux/regulator/consumer.h>
 
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
@@ -45,5 +46,6 @@ struct esdhc_platform_data {
 	int max_bus_width;
 	bool support_vsel;
 	unsigned int delay_line;
+	struct regulator *vaux;
 };
 #endif /* __ASM_ARCH_IMX_ESDHC_H */
